@@ -3,15 +3,18 @@
 #include <string>
 #include <algorithm>
 #include <vector>
+#include <math.h>
 
 using namespace std;
 
 // selector for which coding to run
 // Huffman - huff
 // Shannon - shan
-string selector = "huff";
+// Arithmetic - ari
+string selector = "ari";
 
 const int MAX_SYM_TYPE = 50;	// Max nr of symbol types in input text
+const int ARITHMETIC_BLOCK_SIZE = 3;
 
 // node structure for shannon coding
 struct nodeS {
@@ -28,6 +31,88 @@ struct nodeH {
 	nodeH* left = nullptr;	// left node
 	nodeH* right = nullptr;	// right node
 } p2[MAX_SYM_TYPE];
+
+// node structure for arithmetic coding
+struct nodeA {
+	char sym;
+	double pro = 0;
+	long double lowerBoundary = 0.0;
+	long double upperBoundary = 0.0;
+}p3[MAX_SYM_TYPE];
+
+void printArithmetic(long double num, int prec) {
+	string binary = "";
+
+	while (prec--) {
+		num *= 2;
+		int fract_bit = num;
+
+		if (fract_bit == 1) {
+			num -= fract_bit;
+			binary.push_back(1 + '0');
+		}
+		else { binary.push_back(0 + '0'); }
+	}
+	cout << binary << " " << endl;
+}
+
+void boundaryMaker(double lower, double upper, long long nr_of_sym_types, long long nr_of_sym) {
+	double boundaryHelper = lower;
+	for (int i = 0; i < nr_of_sym_types; i++) {
+		p3[i].lowerBoundary = boundaryHelper;
+		boundaryHelper += p3[i].pro * (upper-lower);
+		p3[i].upperBoundary = boundaryHelper;
+	}
+}
+
+// search for symbol position in the structure
+int symSearch(string block, int i) {
+	int sym_pos = 0;
+	for (auto& x : p3) {	
+		if (x.sym == block[i]) { break; }
+		sym_pos++;
+	}
+	return sym_pos;
+}
+
+void arithmetic(long long nr_of_sym_types, long long nr_of_sym, string doc) {
+	string block = "";
+	int nr_of_blocks = doc.size() / ARITHMETIC_BLOCK_SIZE;
+	int block_shifter = 0;
+	long double code_length;
+
+	while (block_shifter<nr_of_blocks) {
+		block.clear();	// resets the block
+		for (int i = block_shifter * ARITHMETIC_BLOCK_SIZE, block_it = 0; i < (block_shifter + 1) * ARITHMETIC_BLOCK_SIZE; i++, block_it++) { block.append(1, doc[i]); }	// getting the block of symbols
+		boundaryMaker(0.0, 1.0, nr_of_sym_types, nr_of_sym);	// resets the boundary
+		int sym_pos;
+		code_length = 1;
+		for (int i = 0; i < ARITHMETIC_BLOCK_SIZE; i++) {	// iterating through the block
+			sym_pos = symSearch(block, i);
+			boundaryMaker(p3[sym_pos].lowerBoundary, p3[sym_pos].upperBoundary, nr_of_sym_types, nr_of_sym);
+			code_length *= p3[sym_pos].pro;
+		}
+		code_length = log2( 1 / code_length ) + 1;
+		long double decCode = (p3[sym_pos].lowerBoundary + p3[sym_pos].upperBoundary) / 2.0;
+		printArithmetic(decCode, code_length);
+		block_shifter++;
+	}
+	if (doc.size() - (block_shifter * ARITHMETIC_BLOCK_SIZE) > 0) {
+		block.clear();
+		for (unsigned int i = block_shifter * ARITHMETIC_BLOCK_SIZE, block_it = 0; i < doc.size(); i++, block_it++) { block.append(1, doc[i]); }	// getting the block of symbols
+		boundaryMaker(0.0, 1.0, nr_of_sym_types, nr_of_sym);	// resets the boundary
+		int sym_pos;
+		code_length = 1;
+		for (unsigned int i = 0; i < (doc.size() - (block_shifter * ARITHMETIC_BLOCK_SIZE)); i++) {	// iterating through the block
+			sym_pos = symSearch(block, i);
+			boundaryMaker(p3[sym_pos].lowerBoundary, p3[sym_pos].upperBoundary, nr_of_sym_types, nr_of_sym);
+			code_length *= p3[sym_pos].pro;
+		}
+		code_length = log2(1 / code_length) + 1;
+		long double decCode = (p3[sym_pos].lowerBoundary + p3[sym_pos].upperBoundary) / 2.0;
+		printArithmetic(decCode, code_length);
+	}
+}
 
 // comparator for sorting in huffman
 bool compareNodesH(nodeH a, nodeH b) { return (a.occ < b.occ); }
@@ -143,12 +228,14 @@ int main() {
 	file.open(file_name, ios::in);
 	long long nr_of_sym = 0;
 	int nr_of_sym_types = 0;
+	string doc;
 
 	if (file.is_open()) {
 		string line;
 		while (getline(file, line)) {
+			doc += line;
 			for (char& c : line) {
-				nr_of_sym++;	// total character number
+				nr_of_sym++;	// total symbol number
 				bool isChanged = false;
 				if (selector == "shan") {	// shannon builder
 					for (auto& x : p) {
@@ -180,6 +267,20 @@ int main() {
 						nr_of_sym_types++;	// nr of symbol types
 					}
 				}
+				if (selector == "ari") {	// arithmetic builder
+					for (auto& y : p3) {
+						if (y.sym == c) {
+							y.pro++;
+							isChanged = true;
+							break;
+						}
+					}
+					if (!isChanged) {
+						p3[nr_of_sym_types].sym = c;
+						p3[nr_of_sym_types].pro = 1;
+						nr_of_sym_types++;	// nr of symbol types
+					}
+				}
 			}
 		}
 		file.close();
@@ -190,7 +291,7 @@ int main() {
 	}
 
 	cout << "Number of symbols: " << nr_of_sym << endl;
-	cout << "Number of symbol types: " << nr_of_sym_types << endl;
+	cout << "Number of symbol types: " << nr_of_sym_types << endl << endl;
 
 	if (selector == "shan") {
 		shannon(0, nr_of_sym_types - 1);
@@ -198,6 +299,13 @@ int main() {
 	}
 	if (selector == "huff") {
 		huffman(nr_of_sym_types);
+	}
+	if (selector == "ari") {
+		for (int i = 0; i < nr_of_sym_types; i++) {
+			p3[i].pro = p3[i].pro / nr_of_sym;
+		}
+		boundaryMaker(0.0, 1.0, nr_of_sym_types, nr_of_sym);
+		arithmetic(nr_of_sym_types, nr_of_sym, doc);
 	}
 
 	return 0;
