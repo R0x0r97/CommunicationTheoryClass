@@ -33,13 +33,14 @@ struct nodeH {
 } p2[MAX_SYM_TYPE];
 
 // node structure for arithmetic coding
-struct nodeA {
+struct nodeA  {
 	char sym;
 	double pro = 0;
 	long double lowerBoundary = 0.0;
 	long double upperBoundary = 0.0;
 }p3[MAX_SYM_TYPE];
 
+// print arithmetic code
 void printArithmetic(long double num, int prec) {
 	string binary = "";
 
@@ -56,7 +57,8 @@ void printArithmetic(long double num, int prec) {
 	cout << binary << " " << endl;
 }
 
-void boundaryMaker(double lower, double upper, long long nr_of_sym_types, long long nr_of_sym) {
+// creates the boundarys for arithmetic
+void boundaryMaker(double lower, double upper, long long nr_of_sym_types) {
 	double boundaryHelper = lower;
 	for (int i = 0; i < nr_of_sym_types; i++) {
 		p3[i].lowerBoundary = boundaryHelper;
@@ -75,6 +77,7 @@ int symSearch(string block, int i) {
 	return sym_pos;
 }
 
+// Arithmetic coding algorythm
 void arithmetic(long long nr_of_sym_types, long long nr_of_sym, string doc) {
 	string block = "";
 	int nr_of_blocks = doc.size() / ARITHMETIC_BLOCK_SIZE;
@@ -83,13 +86,13 @@ void arithmetic(long long nr_of_sym_types, long long nr_of_sym, string doc) {
 
 	while (block_shifter<nr_of_blocks) {
 		block.clear();	// resets the block
-		for (int i = block_shifter * ARITHMETIC_BLOCK_SIZE, block_it = 0; i < (block_shifter + 1) * ARITHMETIC_BLOCK_SIZE; i++, block_it++) { block.append(1, doc[i]); }	// getting the block of symbols
-		boundaryMaker(0.0, 1.0, nr_of_sym_types, nr_of_sym);	// resets the boundary
+		for (int i = block_shifter * ARITHMETIC_BLOCK_SIZE; i < (block_shifter + 1) * ARITHMETIC_BLOCK_SIZE; i++) { block.append(1, doc[i]); }	// getting the block of symbols
+		boundaryMaker(0.0, 1.0, nr_of_sym_types);	// resets the boundary
 		int sym_pos;
 		code_length = 1;
 		for (int i = 0; i < ARITHMETIC_BLOCK_SIZE; i++) {	// iterating through the block
 			sym_pos = symSearch(block, i);
-			boundaryMaker(p3[sym_pos].lowerBoundary, p3[sym_pos].upperBoundary, nr_of_sym_types, nr_of_sym);
+			boundaryMaker(p3[sym_pos].lowerBoundary, p3[sym_pos].upperBoundary, nr_of_sym_types);
 			code_length *= p3[sym_pos].pro;
 		}
 		code_length = log2( 1 / code_length ) + 1;
@@ -97,15 +100,15 @@ void arithmetic(long long nr_of_sym_types, long long nr_of_sym, string doc) {
 		printArithmetic(decCode, code_length);
 		block_shifter++;
 	}
-	if (doc.size() - (block_shifter * ARITHMETIC_BLOCK_SIZE) > 0) {
+	if (doc.size() - (block_shifter * ARITHMETIC_BLOCK_SIZE) > 0) {	//last chunk of symbols which is smaller than block size
 		block.clear();
-		for (unsigned int i = block_shifter * ARITHMETIC_BLOCK_SIZE, block_it = 0; i < doc.size(); i++, block_it++) { block.append(1, doc[i]); }	// getting the block of symbols
-		boundaryMaker(0.0, 1.0, nr_of_sym_types, nr_of_sym);	// resets the boundary
+		for (unsigned int i = block_shifter * ARITHMETIC_BLOCK_SIZE; i < doc.size(); i++) { block.append(1, doc[i]); }	// getting the block of symbols
+		boundaryMaker(0.0, 1.0, nr_of_sym_types);	// resets the boundary
 		int sym_pos;
 		code_length = 1;
 		for (unsigned int i = 0; i < (doc.size() - (block_shifter * ARITHMETIC_BLOCK_SIZE)); i++) {	// iterating through the block
 			sym_pos = symSearch(block, i);
-			boundaryMaker(p3[sym_pos].lowerBoundary, p3[sym_pos].upperBoundary, nr_of_sym_types, nr_of_sym);
+			boundaryMaker(p3[sym_pos].lowerBoundary, p3[sym_pos].upperBoundary, nr_of_sym_types);
 			code_length *= p3[sym_pos].pro;
 		}
 		code_length = log2(1 / code_length) + 1;
@@ -304,7 +307,7 @@ int main() {
 		for (int i = 0; i < nr_of_sym_types; i++) {
 			p3[i].pro = p3[i].pro / nr_of_sym;
 		}
-		boundaryMaker(0.0, 1.0, nr_of_sym_types, nr_of_sym);
+		boundaryMaker(0.0, 1.0, nr_of_sym_types);
 		arithmetic(nr_of_sym_types, nr_of_sym, doc);
 	}
 
